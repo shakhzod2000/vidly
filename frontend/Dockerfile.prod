@@ -1,0 +1,21 @@
+#------------ Multi-stage build ------------#
+
+# Step 1: Build stage
+FROM node:18-alpine AS build-stage
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+ENV REACT_APP_API_URL=http://api:3001/api
+RUN npm run build
+
+# Step 2: Production stage
+FROM nginx:alpine AS production-stage
+RUN addgroup app && adduser -S -G app app
+USER app
+# Copy the built React app from the "build-stage" into Nginx's HTML folder
+COPY --from=build-stage /app/build /usr/share/nginx/html
+EXPOSE 80
+# -g means "global directives", it allows you to pass Nginx configuration instructions directly from the command line instead of hiding them inside an nginx.conf file.
+# "daemon off;" keeps Nginx in the foreground, so Docker can track it properly.
+ENTRYPOINT [ "nginx", "-g", "daemon off;" ]
